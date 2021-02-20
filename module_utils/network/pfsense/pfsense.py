@@ -54,6 +54,8 @@ class PFSenseModule(object):
         self.root = self.tree.getroot()
         self.aliases = self.get_element('aliases')
         self.interfaces = self.get_element('interfaces')
+        self.dhcpd = self.get_element('dhcpd')
+        self.dhcpd6 = self.get_element('dhcpdv6')
         self.ifgroups = self.get_element('ifgroups')
         self.rules = self.get_element('filter')
         self.shapers = self.get_element('shaper')
@@ -85,34 +87,17 @@ class PFSenseModule(object):
             address = '!' + address
         return address, ports
 
-    def get_element(self, node, root_elt=None):
+    def get_element(self, node):
         """ return <node> configuration element """
-        if root_elt is None:
-            root_elt = self.root
-        return root_elt.find(node)
+        return self.root.find(node)
 
-    def get_elements(self, node, root_elt=None):
+    def get_elements(self, node):
         """ return all <node> configuration elements  """
-        if root_elt is None:
-            root_elt = self.root
-        return root_elt.findall(node)
+        return self.root.findall(node)
 
-    def get_index(self, elt, root_elt=None):
+    def get_index(self, elt):
         """ Get elt index  """
-        if root_elt is None:
-            root_elt = self.root
-        return list(root_elt).index(elt)
-
-    def find_elt(self, descr, objtype, root_elt=None, search_field='descr'):
-        """ return object elt if found """
-        if root_elt is None:
-            root_elt = self.root
-        elements = self.get_elements(objtype, root_elt=root_elt)
-        for elt in elements:
-            descr_elt = elt.find(search_field)
-            if descr_elt is not None and descr_elt.text == descr:
-                return elt
-        return None
+        return list(self.root).index(elt)
 
     @staticmethod
     def remove_deleted_param_from_elt(elt, param, params):
@@ -495,17 +480,40 @@ class PFSenseModule(object):
 
         return None
 
+    def find_certobj_elt(self, descr, objtype, search_field='descr'):
+        """ return certificate object elt if found """
+        cas_elt = self.get_elements(objtype)
+        for ca_elt in cas_elt:
+            descr_elt = ca_elt.find(search_field)
+            if descr_elt is not None and descr_elt.text == descr:
+                return ca_elt
+        return None
+
+    def find_certobj_elt_with_contains(self, descr, objtype, search_field='descr'):
+        """ return certificate object elt if found """
+        cas_elt = self.get_elements(objtype)
+        for ca_elt in cas_elt:
+            descr_elt = ca_elt.find(search_field)
+            if descr_elt is not None and descr in descr_elt.text:
+                return ca_elt
+        return None
+        
+    def find_cert_elt_with_contains(self, descr, search_field='descr'):
+        """ return certificate elt if found """
+        return self.find_certobj_elt_with_contains(descr, 'cert', search_field)
+
+
     def find_ca_elt(self, descr, search_field='descr'):
         """ return certificate authority elt if found """
-        return self.find_elt(descr, 'ca', search_field=search_field)
+        return self.find_certobj_elt(descr, 'ca', search_field)
 
     def find_cert_elt(self, descr, search_field='descr'):
         """ return certificate elt if found """
-        return self.find_elt(descr, 'cert', search_field=search_field)
+        return self.find_certobj_elt(descr, 'cert', search_field)
 
     def find_crl_elt(self, descr, search_field='descr'):
         """ return certificate revocation list elt if found """
-        return self.find_elt(descr, 'crl', search_field=search_field)
+        return self.find_certobj_elt(descr, 'crl', search_field)
 
     def find_schedule_elt(self, name):
         """ return schedule elt if found """

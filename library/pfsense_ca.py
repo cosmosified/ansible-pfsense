@@ -112,6 +112,16 @@ class PFSenseCAModule(PFSenseModuleBase):
             elif not re.match('LS0tLS1CRUdJTiBYNTA5IENSTC0tLS0t', crl):
                 self.module.fail_json(msg='Could not recognize CRL format: %s' % (crl))
 
+        if params['prv'] is not None:
+            prvKey = params['prv']
+            lines = cert.splitlines()
+            print(lines[0])
+            print(lines[-1])
+            if lines[0] == '-----BEGIN RSA PRIVATE KEY-----' and lines[-1] == '-----END RSA PRIVATE KEY-----':
+                params['prv'] = base64.b64encode(prvKey.encode()).decode()
+            elif not re.match('LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t', prvKey):
+                self.module.fail_json(msg='Could not recognize private key format: %s' % (prvKey))
+
     def _params_to_obj(self):
         """ return a dict from module params """
         params = self.params
@@ -125,6 +135,8 @@ class PFSenseCAModule(PFSenseModuleBase):
                 obj['crt'] = params['certificate']
             if 'crl' in params and params['crl'] is not None:
                 obj['crl'] = params['crl']
+            if 'prv' in params and params['prv'] is not None:
+                obj['prv'] = params['prv']
 
         return obj
 
@@ -285,6 +297,7 @@ def main():
             },
             'certificate': {'type': 'str'},
             'crl': {'default': None, 'type': 'str'},
+            'prv': {'type': 'str'}
         },
         required_if=[
             ["state", "present", ["certificate"]],

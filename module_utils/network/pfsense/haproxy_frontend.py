@@ -17,12 +17,10 @@ HAPROXY_FRONTEND_ARGUMENT_SPEC = dict(
     httpclose=dict(default='http-keep-alive', choices=['http-keep-alive']),
     backend_serverpool=dict(required=False, type='str'),
     ssloffloadcert=dict(required=False, type='str'),
+    ssloffloadcert_type_search=dict(default='descr', type='str'),
     ssloffloadacl_an=dict(required=False, type='str'),
-    extaddr=dict(required=True, type='str'),
-    extaddr_port=dict(required=True, type='int'),
-    extaddr_ssl=dict(required=True, type='str'),
+    max_connections=dict(default=100, type='int'),
     addhttp_https_redirect=dict(required=False, type='bool')
-    
 )
 
 
@@ -65,24 +63,20 @@ class PFSenseHaproxyFrontendModule(PFSenseModuleBase):
             self._get_ansible_param(obj, 'status')
             self._get_ansible_param(obj, 'httpclose')
             self._get_ansible_param(obj, 'backend_serverpool')
+            self._get_ansible_param(obj, 'max_connections')
             
             if 'ssloffloadcert' in params and params['ssloffloadcert'] is not None and params['ssloffloadcert'] != '':
-                cert_elt = self.pfsense.find_cert_elt(params['ssloffloadcert'], search_field='type')
+                search_field_type='type'
+                if 'ssloffloadcert_type_search' in params and params['ssloffloadcert_type_search'] is not None and params['ssloffloadcert_type_search'] != '':
+                    search_field_type = params['ssloffloadcert_type_search']
+
+                cert_elt = self.pfsense.find_cert_elt_with_contains(params['ssloffloadcert'], search_field=search_field_type)
                 if cert_elt is None:
                     self.module.fail_json(msg='%s is not a valid certificate ' % (params['ssloffloadcert']))
                 obj['ssloffloadcert'] = cert_elt.find('refid').text
 
             self._get_ansible_param(obj, 'ssloffloadacl_an')
             
-            aval = dict()
-            aval['item'] = dict()
-            val = aval['item']
-            self._get_ansible_param(val, 'extaddr')
-            self._get_ansible_param(val, 'extaddr_port')
-            self._get_ansible_param(val, 'extaddr_ssl')
-            obj['a_extaddr'] = aval
-
-
             #check for redirect
             if 'addhttp_https_redirect' in params and params['addhttp_https_redirect'] is not None and params['addhttp_https_redirect'] != '' and params['addhttp_https_redirect']:
                 #add redirect rules
@@ -153,6 +147,7 @@ $result = haproxy_check_and_run($savemsg, true); if ($result) unlink_if_exists($
             values += self.format_cli_field(self.params, 'backend_serverpool')
             values += self.format_cli_field(self.params, 'ssloffloadcert') 
             values += self.format_cli_field(self.params, 'ssloffloadacl_an')
+            values += self.format_cli_field(self.params, 'max_connections')
         else:
             values += self.format_updated_cli_field(self.obj, before, 'desc', add_comma=(values))
             values += self.format_updated_cli_field(self.obj, before, 'type', add_comma=(values))
@@ -160,6 +155,7 @@ $result = haproxy_check_and_run($savemsg, true); if ($result) unlink_if_exists($
             values += self.format_updated_cli_field(self.obj, before, 'backend_serverpool', add_comma=(values))
             values += self.format_updated_cli_field(self.obj, before, 'ssloffloadcert', add_comma=(values))
             values += self.format_updated_cli_field(self.obj, before, 'ssloffloadacl_an', add_comma=(values))
+            values += self.format_updated_cli_field(self.obj, before, 'max_connections', add_comma=(values))
         return values
 
     def _get_obj_name(self):
